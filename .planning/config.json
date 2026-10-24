@@ -1,0 +1,9 @@
+{
+  "workflow": "gsd",
+  "project_name": "NigraniAI",
+  "problem_statement": "SIH26095 - MoSJE",
+  "version": "1.0.0",
+  "planning_depth": "full",
+  "git_tracking": true,
+  "milestone": "1 - AI/ML Vision & SIH Demo Showcase"
+}

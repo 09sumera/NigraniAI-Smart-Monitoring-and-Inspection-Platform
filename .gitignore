@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+backend/venv/
+venv/
+ENV/
+env/
+*.env
+backend/.env
+backend/instance/*.db
+backend/instance/*.sqlite
+backend/uploads/photos/*
+backend/uploads/videos/*
+!backend/uploads/photos/.gitkeep
+!backend/uploads/videos/.gitkeep
+uploads/
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+*.local
+
+# Logs and OS
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
