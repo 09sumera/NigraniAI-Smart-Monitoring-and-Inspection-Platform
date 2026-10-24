@@ -1,54 +1,84 @@
-# Requirements: NigraniAI (Milestone 1)
+# Requirements: NigraniAI (Milestone 1 — AI/ML Vision & SIH Demo Showcase)
 
 ## 📌 Milestone Objective
-Establish operational AI/ML vision capabilities (crowd counting, face detection/attendance reconciliation, anomaly detection) integrated into the backend and frontend, and prepare an interactive, high-impact demonstration flow tailored for SIH evaluation.
+Establish reliable, CPU-compatible computer vision capabilities (headcount detection, separate face detection for attendance reconciliation, anomaly scoring) integrated into the NigraniAI backend and frontend. Address pre-existing API contract gaps, design non-destructive metadata persistence, provide demo resilience (browser webcam + privacy-safe sample images), and establish automated test coverage.
 
 ---
 
 ## 📋 Functional Requirements (FR)
 
-### FR-1: Computer Vision Headcount & Occupancy Analysis
-- **FR-1.1:** Backend must provide an image/frame inference service that detects human bodies (`person`) and counts total detected individuals.
-- **FR-1.2:** Endpoint `POST /api/analytics/cv/count` accepting an image (or CCTV snapshot) and returning: `detected_count`, `bounding_boxes` (x, y, w, h, confidence), and rendered annotated image or coordinates.
-- **FR-1.3:** Frontend CCTV & Live Monitoring views must support a live interactive test mode (webcam or uploaded image) displaying bounding boxes and real-time count comparison against registered institute capacity.
+### FR-0: Existing API Contract Alignment & Healing (Pre-requisite)
+- **FR-0.1 (Algorithmic Anomalies Endpoint):** Backend must provide `GET /api/analytics/anomalies` returning `{ anomalies: [...] }` to satisfy [`AIRiskAnalyticsPage.tsx`](file:///frontend/src/pages/AIRiskAnalyticsPage.tsx#L31), eliminating 404 console errors. Each anomaly item must include `project_id`, `project_name`, `anomaly_type`, `severity`, `confidence`, `description`, and `detected_at`.
+- **FR-0.2 (Attendance Analytics Contract):** Backend must provide `GET /api/analytics/attendance` returning `{ trend: [...], anomalous_records: [...], total_records: int, anomaly_rate: float }` to satisfy [`AttendanceAnalyticsPage.tsx`](file:///frontend/src/pages/AttendanceAnalyticsPage.tsx#L30). The existing endpoint `GET /api/monitoring/attendance` must be preserved for backward compatibility.
+- **FR-0.3 (Risk Analysis Response Keys):** Backend `GET /api/analytics/risk` must return both `projects` (for [`AIRiskAnalyticsPage.tsx`](file:///frontend/src/pages/AIRiskAnalyticsPage.tsx#L33)) and `high_risk_projects` (for existing consumers) ensuring non-breaking backward compatibility.
 
-### FR-2: Facial Attendance & Ghost Beneficiary Verification
-- **FR-2.1:** Backend service to detect human faces from uploaded inspection photos or staff/student roll-call photos.
-- **FR-2.2:** Compute attendance variance: `variance = registered_count - detected_faces`.
-- **FR-2.3:** If variance exceeds configured threshold (e.g. > 20% absence without justification), automatically trigger high-severity alert: `Potential Ghost Beneficiary Discrepancy`.
-- **FR-2.4:** Frontend Attendance Analytics view must display visual comparison with marked facial boxes and flagged variance metrics.
+### FR-1: Lightweight Computer Vision Headcount & Occupancy Analysis
+- **FR-1.1 (Model Selection & Licensing):** Use `opencv-python-headless` and a lightweight, permissive-licensed (e.g., Apache 2.0, MIT, BSD) pretrained CPU-compatible model (such as MobileNet-SSD or lightweight ONNX person-detector). Evaluate accuracy and licensing before finalizing. Avoid heavy PyTorch/CUDA runtime dependencies.
+- **FR-1.2 (Headcount Detection Endpoint):** Backend endpoint `POST /api/analytics/cv/count` accepting an image (multipart upload or base64 data URL) and returning: `detected_count`, `bounding_boxes` (list of `[x, y, w, h]`), `confidence_scores`, `model_info`, and `processing_time_ms`.
+- **FR-1.3 (Performance Measurement):** Do not claim speculative latency targets until empirically measured on host CPU. Record and log actual processing times in response headers/payload.
 
-### FR-3: Machine Learning Anomaly & Surprise Inspection Risk Scoring
-- **FR-3.1:** Train / run Isolation Forest model using Scikit-Learn on multi-dimensional institute metrics (`attendance_ratio`, `fund_utilization`, `complaint_count`, `days_since_last_inspection`).
-- **FR-3.2:** Provide `/api/analytics/anomaly-matrix` returning anomaly anomaly scores (-1 anomaly, 1 normal) and vulnerability percentiles.
-- **FR-3.3:** Surprise inspection engine must dynamically incorporate live anomaly scores into the 70/30 selection formula.
+### FR-2: Decoupled Face Detection & Attendance Reconciliation
+- **FR-2.1 (Decoupled Face Detection):** Provide face detection (e.g., OpenCV Haar cascade or YuNet) strictly for counting and localization of faces in attendance/muster roll photos. Face detection must remain strictly decoupled from biometric identity verification (no storage or comparison of identifiable biometric feature vectors).
+- **FR-2.2 (Attendance Variance Reconciliation):** Compute variance against registered rosters: `discrepancy = expected_count - detected_count`.
+- **FR-2.3 (Automated Discrepancy Escalation):** When discrepancy exceeds configured threshold (e.g. >20% unexplained variance), generate an automatic high-severity `Alert` flagged as `Potential Ghost Beneficiary Discrepancy`.
+- **FR-2.4 (Attendance Visuals):** Integrate detection summaries into the Attendance Analytics dashboard view.
 
-### FR-4: Tamper-Proof Evidence & Geofence Verification
-- **FR-4.1:** Field officer mobile workspace photo capture must extract real-time EXIF timestamp and GPS coordinates.
-- **FR-4.2:** Compute cryptographic SHA-256 hash of media immediately upon upload and verify GPS proximity within allowable radius (e.g. 200m) of institution coordinates.
-- **FR-4.3:** Flag any upload with mismatched geofence or missing metadata as `Suspicious / Potential Geofence Bypass`.
+### FR-3: Detection Metadata Persistence
+- **FR-3.1 (Non-Destructive Schema Design):** Introduce a dedicated `CVDetectionRecord` model (in `app/models/evidence.py` or new `app/models/cv_detection.py`) with fields:
+  - `id` (Integer, Primary Key)
+  - `project_id` (Integer, ForeignKey to `projects.id`, nullable)
+  - `camera_id` (Integer, ForeignKey to `cameras.id`, nullable)
+  - `evidence_id` (Integer, ForeignKey to `evidence.id`, nullable)
+  - `source_type` (String: `'webcam'`, `'cctv_feed'`, `'sample_image'`, `'upload'`)
+  - `detected_headcount` (Integer)
+  - `detected_faces` (Integer)
+  - `bounding_boxes` (JSON/Text serialized)
+  - `confidence_scores` (JSON/Text serialized)
+  - `processing_time_ms` (Float)
+  - `discrepancy_flag` (Boolean, default False)
+  - `created_at` (DateTime)
+- **FR-3.2 (Database Preservation):** Use non-destructive schema migration/creation (`db.create_all()` or `CREATE TABLE IF NOT EXISTS`). Must not drop, truncate, or overwrite existing tables or rows in `nigraniai.db`.
 
-### FR-5: SIH Jury Demo Flow & Quick-Demo Walkthrough
-- **FR-5.1:** Add an interactive "Interactive Jury Demo / Live Simulation" tour or quick-action bar with one-click scenarios:
-  - Scenario A: *Normal Compliant Center (Low risk, clean audit)*
-  - Scenario B: *Suspected Ghost Beneficiary Center (Low headcount vs high registered roll -> Alert triggered)*
-  - Scenario C: *Live Webcam AI Audit (Real-time count on jury's own faces/room)*
-  - Scenario D: *Surprise Inspection Trigger & Instant Dispatch Notification*
-- **FR-5.2:** Provide a clean status indicator showing active AI models, backend connection health, and database stats.
+### FR-4: Demo Resilience & Privacy Safeguards
+- **FR-4.1 (Browser Webcam Mode):** Support live browser webcam streaming via HTML5 `navigator.mediaDevices.getUserMedia` with explicit camera permission handling and user-friendly error banners (e.g. `PermissionDeniedError`, `NotFoundError`).
+- **FR-4.2 (Sample-Image Testing Mode):** Provide bundled, privacy-safe sample images (e.g., classroom, assembly hall, empty room) with zero personally identifiable information (PII) to allow instant testing even when camera access is unavailable.
+- **FR-4.3 (Graceful Fallback):** When camera access fails or is denied, the frontend must automatically offer 1-click fallback to the privacy-safe sample image dataset without breaking or hanging the UI.
+
+### FR-5: Machine Learning Anomaly & Surprise Inspection Integration
+- **FR-5.1 (Isolation Forest Hardening):** Train/configure Scikit-Learn Isolation Forest on multi-dimensional project parameters (`attendance_ratio`, `fund_utilization`, `complaint_count`, `days_since_inspection`).
+- **FR-5.2 (Surprise Engine Linking):** Integrate real-time anomaly scores directly into the multi-factor 70/30 selection formula in `app/services/inspection_engine.py`.
+
+### FR-6: SIH Jury Presentation Flow
+- **FR-6.1 (Interactive Demo Scenarios):** Provide a top-bar or floating demo panel allowing the jury/presenter to trigger 4 pre-canned inspection scenarios:
+  1. *Compliant Institution (Standard inspection cycle, low risk)*
+  2. *Ghost Beneficiary Alert (Low headcount vs inflated attendance)*
+  3. *Live Webcam / Sample Image AI Test (Real-time detection with overlay)*
+  4. *Surprise Audit Dispatch (Real-time weighted selection)*
 
 ---
 
-## 🔒 Non-Functional Requirements (NFR)
-- **NFR-1 (Performance):** Computer vision inference on CPU must execute under 400ms per frame to feel instantaneous during live jury demonstrations.
-- **NFR-2 (Fault Tolerance):** Graceful degradation: If camera access is blocked in browser, provide clear fallback test samples for all 17 pages.
-- **NFR-3 (Data Integrity):** All inspection reports and evidence submissions must record immutable audit logs with ISO timestamps.
-- **NFR-4 (Responsive UI):** Inspector workspace must remain 100% usable on mobile screen viewports (375px+).
+## 🔒 Non-Functional & Security Requirements (NFR)
+- **NFR-1 (Dependency Footprint):** Keep backend dependencies lightweight (`opencv-python-headless`). Reject multi-gigabyte frameworks (e.g. full PyTorch/CUDA) unless explicitly required by user.
+- **NFR-2 (Privacy & Ethics):** Test datasets and sample images must not contain PII or identifiable private citizens. No biometric recognition templates are to be stored.
+- **NFR-3 (Data Integrity & Backward Compatibility):** All existing database tables, columns, seeded projects (30), cameras (62), and attendance records (450) must remain intact.
+- **NFR-4 (Security & Secrets Hygiene):** `.env`, database binaries (`*.db`, `*.sqlite`), and uploaded media must remain strictly excluded in `.gitignore`.
+
+---
+
+## 🧪 Testing Requirements
+- **TR-1 (API Contract Tests):** Automated tests verifying status codes and JSON schema matching for:
+  - `GET /api/analytics/anomalies`
+  - `GET /api/analytics/attendance`
+  - `GET /api/analytics/risk` (both `projects` and `high_risk_projects` keys)
+- **TR-2 (Computer Vision Unit Tests):** Verify `POST /api/analytics/cv/count` on synthetic sample images returns valid bounding boxes and positive counts.
+- **TR-3 (Persistence Tests):** Verify `CVDetectionRecord` creation, retrieval, and foreign key relationships with `Project` and `Camera`.
+- **TR-4 (Frontend Integration Checks):** Verify webcam error handling, canvas bounding box rendering, and fallback to sample images without crashing.
 
 ---
 
 ## 🎯 Verification Criteria (Definition of Done)
-1. `/api/analytics/cv/count` successfully detects persons and returns bounding box coordinates.
-2. Attendance reconciliation flags discrepancies when detected count is significantly lower than roster.
-3. CCTV / Live page includes interactive modal/tab to test image or webcam live with overlay boxes.
-4. Anomaly score dynamically recalibrates when attendance or complaints are modified.
-5. All 4 SIH Demo Scenarios can be triggered with one click during presentation.
+1. All three contract mismatches (`/analytics/anomalies`, `/analytics/attendance`, `projects` key) are verified with passing automated tests.
+2. `opencv-python-headless` runs person detection on CPU and records measured latency without crashing.
+3. `CVDetectionRecord` table is created in SQLite without dropping or damaging existing tables.
+4. Live webcam and sample-image test modes render bounding boxes with clear error handling.
+5. Automated test suite runs clean with `pytest`.
