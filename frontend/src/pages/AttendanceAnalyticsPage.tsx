@@ -24,32 +24,43 @@ export const AttendanceAnalyticsPage: React.FC = () => {
   const [anomalyRate, setAnomalyRate] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  const fetchAttendance = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/analytics/attendance');
+      setTrend(res.data.trend || []);
+      setAnomalies(res.data.anomalous_records || []);
+      setTotalRecords(res.data.total_records || 0);
+      setAnomalyRate(res.data.anomaly_rate || 0);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchAttendance = async () => {
-      try {
-        const res = await api.get('/analytics/attendance');
-        setTrend(res.data.trend || []);
-        setAnomalies(res.data.anomalous_records || []);
-        setTotalRecords(res.data.total_records || 0);
-        setAnomalyRate(res.data.anomaly_rate || 0);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchAttendance();
   }, []);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-          Staff & Beneficiary Attendance Analytics
-        </h1>
-        <p className="text-sm text-slate-500">
-          Cross-verification of reported attendance registers against sanctioned rosters and historical trends.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            Staff & Beneficiary Attendance Analytics
+          </h1>
+          <p className="text-sm text-slate-500">
+            Cross-verification of reported attendance registers against sanctioned rosters and historical trends.
+          </p>
+        </div>
+        <button
+          onClick={fetchAttendance}
+          disabled={loading}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+        >
+          <span>Refresh Analytics</span>
+        </button>
       </div>
 
       {/* KPI Header */}

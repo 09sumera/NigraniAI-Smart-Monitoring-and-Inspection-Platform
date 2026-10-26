@@ -23,20 +23,68 @@ export const MobileWorkspacePage: React.FC = () => {
   const [locationStatus, setLocationStatus] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const [file, setFile] = useState<File | null>(null);
 
-  useEffect(() => {
-    const fetchAssigned = async () => {
-      try {
-        const res = await api.get('/inspections', { params: { per_page: 15 } });
-        setInspections(res.data.inspections || []);
-        if (res.data.inspections?.length > 0) {
-          setSelectedInspection(res.data.inspections[0]);
+  const fetchAssigned = async () => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const targetInspectionCode = searchParams.get('inspection_id');
+      const targetId = searchParams.get('id');
+
+      const res = await api.get('/inspections', { params: { per_page: 50 } });
+      let list = res.data.inspections || [];
+
+      // If a specific target inspection was requested via URL but not in the default page, fetch it directly
+      if (targetInspectionCode && !list.some((i: any) => i.inspection_id === targetInspectionCode)) {
+        try {
+          const singleRes = await api.get('/inspections', { params: { inspection_id: targetInspectionCode } });
+          const singleList = singleRes.data.inspections || [];
+          if (singleList.length > 0) {
+            list = [singleList[0], ...list];
+          }
+        } catch (e) {
+          console.warn('Could not fetch target inspection by code', e);
         }
-      } catch (err) {
-        console.error(err);
       }
-    };
+      if (targetId && !list.some((i: any) => i.id === Number(targetId))) {
+        try {
+          const singleRes = await api.get(`/inspections/${targetId}`);
+          if (singleRes.data && singleRes.data.id) {
+            list = [singleRes.data, ...list];
+          }
+        } catch (e) {
+          console.warn('Could not fetch target inspection by id', e);
+        }
+      }
+
+      setInspections(list);
+
+      // Prioritize selecting the targeted inspection if specified in URL query
+      if (targetInspectionCode || targetId) {
+        const found = list.find((i: any) =>
+          (targetInspectionCode && i.inspection_id === targetInspectionCode) ||
+          (targetId && i.id === Number(targetId))
+        );
+        if (found) {
+          setSelectedInspection(found);
+          return;
+        }
+      }
+
+      if (list.length > 0) {
+        setSelectedInspection((prev: any) => {
+          if (!prev) return list[0];
+          const found = list.find((i: any) => i.id === prev.id);
+          return found || list[0];
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch assigned inspections:', err);
+    }
+  };
+
+  useEffect(() => {
     fetchAssigned();
   }, []);
 
@@ -62,41 +110,70 @@ export const MobileWorkspacePage: React.FC = () => {
 
   const handleSubmitReport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedInspection) return;
+    if (submitting) return;
+
+    if (!selectedInspection) {
+      setErrorMsg('Please select an active field assignment before transmitting report.');
+      return;
+    }
+
+    if (selectedInspection.status === 'submitted') {
+      setErrorMsg('This inspection report has already been submitted and is currently under review.');
+      return;
+    }
+
+    if (!observations.trim()) {
+      setErrorMsg('Please enter on-site physical observations before transmitting report.');
+      return;
+    }
+
+    if (!findings.trim()) {
+      setErrorMsg('Please enter critical findings & discrepancies before transmitting report.');
+      return;
+    }
+
     setSubmitting(true);
     setSuccessMsg('');
+    setErrorMsg('');
 
     try {
-      // 1. Submit Inspection PATCH
-      await api.patch(`/inspections/${selectedInspection.id}`, {
-        status: 'submitted',
-        observations,
-        findings,
-        severity,
-        latitude: coords?.lat,
-        longitude: coords?.lng,
-      });
+      // Build unified FormData payload preserving file uploads, GPS metadata, and details
+      const formData = new FormData();
+      formData.append('status', 'submitted');
+      formData.append('inspection_id', String(selectedInspection.id));
+      formData.append('project_id', String(selectedInspection.project_id));
+      formData.append('observations', observations.trim());
+      formData.append('findings', findings.trim());
+      formData.append('severity', severity);
 
-      // 2. Upload file if provided
-      if (file) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('project_id', String(selectedInspection.project_id));
-        formData.append('inspection_id', String(selectedInspection.id));
-        formData.append('latitude', String(coords?.lat || 19.076));
-        formData.append('longitude', String(coords?.lng || 72.8777));
-        formData.append('description', 'On-site mobile evidence capture');
-        await api.post('/evidence/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+      if (coords?.lat != null) {
+        formData.append('latitude', String(coords.lat));
       }
+      if (coords?.lng != null) {
+        formData.append('longitude', String(coords.lng));
+      }
+
+      if (file) {
+        formData.append('file', file);
+        formData.append('description', 'On-site mobile evidence capture');
+      }
+
+      await api.patch(`/inspections/${selectedInspection.id}`, formData);
 
       setSuccessMsg('Inspection report and geo-tagged evidence successfully uploaded to the central command database!');
       setObservations('');
       setFindings('');
       setFile(null);
-    } catch (err) {
-      alert('Error submitting report.');
+
+      // Refresh assignments so status badge and lifecycle update
+      await fetchAssigned();
+    } catch (err: any) {
+      console.error('Submission error:', err);
+      const safeError =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        'Error submitting report. Please verify connection and inputs.';
+      setErrorMsg(safeError);
     } finally {
       setSubmitting(false);
     }
@@ -127,6 +204,13 @@ export const MobileWorkspacePage: React.FC = () => {
         </div>
       )}
 
+      {errorMsg && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
       {/* Select Assigned Inspection */}
       <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-3">
         <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -137,29 +221,59 @@ export const MobileWorkspacePage: React.FC = () => {
           onChange={(e) => {
             const found = inspections.find((i) => i.id === Number(e.target.value));
             setSelectedInspection(found);
+            setErrorMsg('');
+            setSuccessMsg('');
           }}
           className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 font-medium focus:ring-2 focus:ring-blue-500"
         >
           {inspections.map((i) => (
             <option key={i.id} value={i.id}>
-              {i.inspection_id} — {i.project_name} ({i.status})
+              {i.inspection_id} — {i.project_name}{i.district ? ` (${i.district})` : ''} [{i.status}]
             </option>
           ))}
         </select>
 
         {selectedInspection && (
-          <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1">
+          <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1.5 border border-slate-100">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">Inspection Code:</span>
+              <span className="font-mono font-bold text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                {selectedInspection.inspection_id}
+              </span>
+            </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Target Entity:</span>
               <span className="font-bold text-slate-800">{selectedInspection.project_name}</span>
             </div>
+            {selectedInspection.institution_name && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Institution:</span>
+                <span className="font-medium text-slate-700">{selectedInspection.institution_name}</span>
+              </div>
+            )}
+            {(selectedInspection.district || selectedInspection.project_state) && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Jurisdiction:</span>
+                <span className="font-medium text-slate-700">
+                  {[selectedInspection.district, selectedInspection.project_state].filter(Boolean).join(', ')}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-slate-500">Inspection Type:</span>
               <span className="font-semibold uppercase text-blue-600">{selectedInspection.inspection_type}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Current Lifecycle:</span>
-              <span className="font-semibold text-slate-700 capitalize">{selectedInspection.status}</span>
+              <span className={`font-semibold capitalize ${
+                selectedInspection.status === 'submitted'
+                  ? 'text-emerald-600'
+                  : selectedInspection.status === 'in_progress'
+                  ? 'text-blue-600'
+                  : 'text-slate-700'
+              }`}>
+                {selectedInspection.status}
+              </span>
             </div>
           </div>
         )}
@@ -253,10 +367,14 @@ export const MobileWorkspacePage: React.FC = () => {
 
         <button
           type="submit"
-          disabled={submitting}
-          className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+          disabled={submitting || !selectedInspection || selectedInspection.status === 'submitted'}
+          className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {submitting ? 'Encrypting & Submitting...' : 'Transmit Final Inspection Report'}
+          {submitting
+            ? 'Encrypting & Submitting...'
+            : selectedInspection?.status === 'submitted'
+            ? 'Inspection Already Transmitted & Under Review'
+            : 'Transmit Final Inspection Report'}
         </button>
       </form>
     </div>

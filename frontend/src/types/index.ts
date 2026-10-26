@@ -43,8 +43,12 @@ export interface Inspection {
   id: number;
   inspection_id: string;
   project_id: number;
+  project_code?: string;
   project_name?: string;
+  institution_name?: string;
+  institution_type?: string;
   project_state?: string;
+  district?: string;
   assigned_officer?: string;
   officer_id?: number;
   inspection_type: 'surprise' | 'scheduled' | 'emergency' | 'follow_up';
@@ -63,9 +67,15 @@ export interface Inspection {
 
 export interface Assignment {
   id: number;
+  inspection_id?: string;
+  inspection_pk?: number;
   project_id: number;
+  project_code?: string;
   project_name?: string;
+  institution_name?: string;
+  institution_type?: string;
   project_state?: string;
+  district?: string;
   risk_level?: string;
   officer_id: number;
   officer_name?: string;
@@ -107,15 +117,22 @@ export interface Evidence {
   uploader_name?: string;
   evidence_type: 'photo' | 'video' | 'document';
   file_name: string;
+  file_url?: string;
+  download_url?: string;
   file_size?: number;
+  file_hash?: string;
   description?: string;
   captured_at?: string;
   received_at?: string;
   latitude?: number;
   longitude?: number;
   verification_status: 'pending' | 'verified' | 'rejected' | 'flagged';
+  reviewer_id?: number;
+  reviewer_name?: string;
   reviewer_notes?: string;
   reviewed_at?: string;
+  inspection_code?: string;
+  inspection_status?: string;
   created_at?: string;
 }
 
@@ -125,6 +142,7 @@ export interface Camera {
   project_name?: string;
   name: string;
   location_desc: string;
+  stream_url?: string;
   status: 'connected' | 'disconnected' | 'simulated' | 'unauthorized';
   last_heartbeat?: string;
   is_active: boolean;

@@ -4,3 +4,4 @@ from app.models.inspection import Inspection, ChecklistResponse, Assignment
 from app.models.evidence import Evidence
 from app.models.alert import Alert, Notification
 from app.models.audit import AuditLog
+from app.models.settings import SystemSetting

@@ -19,6 +19,7 @@ def create_app(env='development'):
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'photos'), exist_ok=True)
     os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'videos'), exist_ok=True)
+    os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'documents'), exist_ok=True)
 
     # Import and register all models so SQLAlchemy sees them
     from app.models import user, project, inspection, evidence, alert, audit
@@ -36,6 +37,7 @@ def create_app(env='development'):
     from app.routes.reports import reports_bp
     from app.routes.monitoring import monitoring_bp
     from app.routes.audit import audit_bp
+    from app.routes.settings import settings_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
@@ -49,9 +51,20 @@ def create_app(env='development'):
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
     app.register_blueprint(monitoring_bp, url_prefix='/api/monitoring')
     app.register_blueprint(audit_bp, url_prefix='/api/audit-logs')
+    app.register_blueprint(settings_bp, url_prefix='/api/settings')
 
     @app.route('/')
     def index():
         return {'message': 'NigraniAI API v1.0', 'status': 'running', 'docs': '/api/docs'}
+
+    @app.route('/api/health')
+    def health_check():
+        upload_folder = app.config.get('UPLOAD_FOLDER')
+        return {
+            'status': 'healthy',
+            'upload_folder': upload_folder,
+            'upload_folder_exists': os.path.isdir(upload_folder) if upload_folder else False,
+            'photos_folder_exists': os.path.isdir(os.path.join(upload_folder, 'photos')) if upload_folder else False,
+        }
 
     return app

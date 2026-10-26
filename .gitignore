@@ -30,3 +30,18 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 Thumbs.db
+# Python test and tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# SQLite database sidecar files
+backend/instance/*.db-*
+backend/instance/*.sqlite-*
+
+# Other local database files
+*.sqlite3
+
+# Build and deployment artifacts
+backend/build/
+backend/dist/

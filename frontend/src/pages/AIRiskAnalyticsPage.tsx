@@ -30,7 +30,14 @@ export const AIRiskAnalyticsPage: React.FC = () => {
           api.get('/analytics/risk'),
           api.get('/analytics/anomalies'),
         ]);
-        setRiskData(rRes.data.projects || []);
+        const projectsList = rRes.data.projects || rRes.data.high_risk_projects || [];
+        // Ensure project_name key exists
+        const formatted = projectsList.map((p: any) => ({
+          ...p,
+          project_name: p.project_name || p.name || 'Monitored Unit',
+          risk_score: typeof p.risk_score === 'number' ? Math.round(p.risk_score * 10) / 10 : 0
+        }));
+        setRiskData(formatted);
         setAnomalies(aRes.data.anomalies || []);
       } catch (err) {
         console.error(err);
@@ -47,11 +54,11 @@ export const AIRiskAnalyticsPage: React.FC = () => {
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
           AI Risk Scoring & Anomaly Detection
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
-            Isolation Forest ML
+            Multi-Factor Risk Engine
           </span>
         </h1>
         <p className="text-sm text-slate-500">
-          Continuous unsupervised machine learning surveillance across multi-dimensional project parameters.
+          Continuous algorithmic surveillance across live attendance deficits, overdue inspection cycles, and open alerts.
         </p>
       </div>
 
@@ -62,16 +69,16 @@ export const AIRiskAnalyticsPage: React.FC = () => {
             <BrainCircuit className="w-7 h-7" />
           </div>
           <div>
-            <h3 className="font-bold text-sm">Ensemble Predictive Risk Matrix</h3>
+            <h3 className="font-bold text-sm">Deterministic Multi-Factor Vulnerability Scoring</h3>
             <p className="text-xs text-purple-200 mt-0.5">
-              Trained on compliance decay, beneficiary capacity ratios, and geo-stamp authenticity flags.
+              Live weights applied to compliance scores, statutory overdue days, open alerts, and attendance variance registers.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-xs text-purple-300">Model Precision</p>
-            <p className="text-lg font-extrabold text-white">94.8%</p>
+            <p className="text-xs text-purple-300">Model Framework</p>
+            <p className="text-sm font-extrabold text-white">Heuristic Rules + Sandbox ML</p>
           </div>
         </div>
       </div>
@@ -84,7 +91,7 @@ export const AIRiskAnalyticsPage: React.FC = () => {
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={riskData.slice(0, 10)}>
-              <XAxis dataKey="project_name" stroke="#94a3b8" fontSize={10} tickFormatter={(val) => val.slice(0, 12) + '...'} />
+              <XAxis dataKey="project_name" stroke="#94a3b8" fontSize={10} tickFormatter={(val) => (val ? String(val).slice(0, 14) + '...' : '')} />
               <YAxis stroke="#94a3b8" fontSize={11} domain={[0, 100]} />
               <Tooltip wrapperClassName="text-xs rounded-xl shadow-lg border border-slate-200" />
               <Bar dataKey="risk_score" fill="#ef4444" radius={[4, 4, 0, 0]} name="Risk Index (0-100)" />

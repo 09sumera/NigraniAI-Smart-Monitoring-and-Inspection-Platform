@@ -83,7 +83,9 @@ export const ReportsPage: React.FC = () => {
                     <td className="py-3 px-3 text-slate-600">{r.project_state}</td>
                     <td className="py-3 px-3 text-slate-600">{r.assigned_officer || 'Designated Auditor'}</td>
                     <td className="py-3 px-3 uppercase text-[10px] font-semibold text-blue-600">{r.inspection_type}</td>
-                    <td className="py-3 px-3 font-bold text-slate-900">{r.score || '92.5'} / 100</td>
+                    <td className="py-3 px-3 font-bold text-slate-900">
+                      {r.score !== null && r.score !== undefined ? `${r.score} / 100` : 'Pending Assessment'}
+                    </td>
                     <td className="py-3 px-3">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">
                         {r.status}

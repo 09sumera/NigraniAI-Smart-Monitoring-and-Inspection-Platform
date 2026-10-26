@@ -9,7 +9,8 @@ import {
   Calendar,
   UserCheck,
   Building,
-  Info
+  Info,
+  MapPin
 } from 'lucide-react';
 
 export const SurpriseInspectionsPage: React.FC = () => {
@@ -39,11 +40,11 @@ export const SurpriseInspectionsPage: React.FC = () => {
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
           Automated Surprise Inspection Engine
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-            Weighted Multi-Factor AI
+            Risk-Weighted Multi-Factor AI
           </span>
         </h1>
         <p className="text-sm text-slate-500">
-          Unbiased, algorithm-driven inspection dispatcher combining risk metrics, audit gaps, and non-predictable randomization.
+          Unbiased, algorithm-driven inspection dispatcher combining live risk metrics, audit overdue schedules, and non-predictable randomization.
         </p>
       </div>
 
@@ -58,7 +59,7 @@ export const SurpriseInspectionsPage: React.FC = () => {
             Trigger Algorithmic Surprise Inspection
           </h2>
           <p className="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
-            Evaluates 30+ registered units across state territories. Factors include historical non-compliance, attendance anomalies, CCTV blackout events, and overdue audit schedules.
+            Dynamically evaluates all eligible active units across database records. Factors include historical non-compliance, attendance anomalies, unresolved alerts, and overdue audit schedules.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
@@ -87,9 +88,12 @@ export const SurpriseInspectionsPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-          <ShieldAlert className="w-5 h-5 shrink-0" />
-          <span>{error}</span>
+        <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-3 shadow-sm">
+          <ShieldAlert className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold text-rose-900">Selection Notice</p>
+            <p className="leading-relaxed">{error}</p>
+          </div>
         </div>
       )}
 
@@ -101,18 +105,25 @@ export const SurpriseInspectionsPage: React.FC = () => {
               <CheckCircle2 className="w-5 h-5" />
               <span>Surprise Inspection Dispatched Successfully</span>
             </div>
-            <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">
-              ID: {result.inspection_id || result.assignment?.inspection_id || 'INS-ACTIVE'}
+            <span className="text-xs font-mono bg-slate-100 px-2.5 py-1 rounded-lg text-slate-700 font-bold border border-slate-200">
+              ID: {result.inspection_id || result.inspection?.inspection_id || result.assignment?.inspection_id || 'INS-ACTIVE'}
             </span>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Building className="w-3.5 h-3.5 text-blue-600" /> Target Unit
+                <Building className="w-3.5 h-3.5 text-blue-600" /> Target Unit & Project
               </span>
               <p className="mt-1 font-bold text-slate-900 text-sm">{result.assignment?.project_name}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{result.assignment?.project_state}</p>
+              {result.assignment?.institution_name && (
+                <p className="text-xs font-medium text-slate-700 mt-0.5">{result.assignment?.institution_name}</p>
+              )}
+              <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                {[result.assignment?.district, result.assignment?.project_state].filter(Boolean).join(', ')}
+                {result.assignment?.project_code && ` • ${result.assignment.project_code}`}
+              </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
@@ -125,26 +136,38 @@ export const SurpriseInspectionsPage: React.FC = () => {
 
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <ShieldAlert className="w-3.5 h-3.5 text-rose-600" /> Risk Score at Trigger
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-600" /> Risk / Priority Score
               </span>
               <p className="mt-1 font-bold text-rose-600 text-sm">
-                {result.assignment?.risk_score_at_assignment || 78.5} / 100
+                {(result.composite_score ?? result.assignment?.risk_score_at_assignment ?? 0).toFixed(1)} / 100
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">High Priority Queue</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Tier: <span className="capitalize font-semibold text-slate-700">{result.assignment?.risk_level || 'Active'}</span>
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Dice5 className="w-3.5 h-3.5 text-emerald-600" /> Candidate Pool
+              </span>
+              <p className="mt-1 font-bold text-slate-900 text-sm">
+                {result.candidate_pool_size ? `${result.candidate_pool_size} Eligible Units` : 'Multi-Unit Pool'}
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">Risk-Weighted Selection</p>
             </div>
           </div>
 
           <div className="mt-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 text-xs">
             <span className="font-bold text-indigo-900">Selection Justification:</span>
             <p className="text-indigo-800 mt-1 leading-relaxed">
-              {result.selection_reason || result.assignment?.assignment_reason || 'Multi-factor model identified high variance between reported beneficiary census and staff attendance metrics.'}
+              {result.selection_reason || result.assignment?.assignment_reason}
             </p>
           </div>
 
           <div className="mt-6 flex justify-end">
             <a
-              href="/mobile-workspace"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-2"
+              href={`/mobile-workspace?inspection_id=${result.inspection_id || result.inspection?.inspection_id || result.assignment?.inspection_id || ''}&id=${result.inspection?.id || result.assignment?.inspection_pk || ''}`}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-2 shadow-md shadow-blue-500/20 transition-all"
             >
               Open in Inspector Mobile Workspace <ArrowRight className="w-4 h-4" />
             </a>
@@ -155,21 +178,21 @@ export const SurpriseInspectionsPage: React.FC = () => {
       {/* Rules and Explanation Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">1. Risk Weighting (70%)</h3>
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">1. Risk Weighting</h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Prioritizes entities with historical violations, low compliance index, and prolonged gaps between verified on-site visits.
+            Prioritizes entities with historical violations, low compliance index, attendance discrepancies, and overdue audit schedules.
           </p>
         </div>
         <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">2. Unpredictable Randomizer (30%)</h3>
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">2. Dynamic Candidate Pool</h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Introduces non-deterministic sampling across all units to prevent low-risk institutions from anticipating inspection intervals.
+            Continuously queries actual database records. Automatically incorporates newly registered projects and filters units with ongoing audits.
           </p>
         </div>
         <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">3. Rotation Enforcement</h3>
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">3. Rotation & Anti-Collusion</h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Dynamically excludes inspectors who conducted audits at the chosen institute within the last 180 days to eliminate familiarity bias.
+            Employs risk-weighted probabilistic sampling and dynamically excludes inspectors who conducted audits at the chosen institute within the last 180 days.
           </p>
         </div>
       </div>

@@ -27,7 +27,7 @@ def list_reports():
             'project_state': i.project.state if i.project else 'National',
             'assigned_officer': i.assignment.officer.name if (i.assignment and i.assignment.officer) else 'Designated Officer',
             'inspection_type': i.inspection_type,
-            'score': round(i.score, 1) if i.score else (round(i.project.compliance_score, 1) if (i.project and i.project.compliance_score) else 90.0),
+            'score': round(i.score, 1) if i.score is not None else (round(i.project.compliance_score, 1) if (i.project and i.project.compliance_score is not None) else None),
             'status': i.status,
             'created_at': i.created_at.isoformat() if i.created_at else None,
         })

@@ -98,6 +98,7 @@ class Camera(db.Model):
             'project_name': self.project.name if self.project else None,
             'name': self.name,
             'location_desc': self.location_desc,
+            'stream_url': self.stream_url,
             'status': self.status,
             'last_heartbeat': self.last_heartbeat.isoformat() if self.last_heartbeat else None,
             'is_active': self.is_active,

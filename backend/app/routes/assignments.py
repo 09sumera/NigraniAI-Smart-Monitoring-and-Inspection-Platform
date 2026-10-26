@@ -20,9 +20,10 @@ def generate_surprise_inspection():
     data = request.get_json() or {}
     user_id = int(get_jwt_identity())
     simulation_mode = data.get('simulation_mode', True)
+    state_filter = data.get('state')
 
     engine = InspectionEngine()
-    result = engine.generate_surprise_inspection(user_id)
+    result = engine.generate_surprise_inspection(user_id, state=state_filter)
     if 'error' in result:
         return jsonify(result), 400
 
@@ -37,6 +38,7 @@ def generate_surprise_inspection():
     )
     db.session.add(inspection)
     db.session.commit()
+    db.session.refresh(assignment)
 
     log_action(user_id, 'GENERATE_SURPRISE_INSPECTION', 'assignment', assignment.id,
                f'Assigned to officer {assignment.officer_id} for project {assignment.project_id}')
@@ -44,8 +46,11 @@ def generate_surprise_inspection():
     return jsonify({
         'assignment': assignment.to_dict(),
         'inspection_id': inspection_id,
+        'inspection': inspection.to_dict(),
         'selection_reason': result['reason'],
         'algorithm': result['algorithm'],
+        'composite_score': result.get('composite_score'),
+        'candidate_pool_size': result.get('candidate_pool_size', 1),
         'simulation_mode': simulation_mode,
     }), 201
 

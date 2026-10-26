@@ -316,8 +316,13 @@ def seed_assignments_inspections(projects, users, roles):
     for project in random.sample(projects, min(20, len(projects))):
         officer = random.choice(officers)
         insp_type = random.choice(insp_types)
-        asn_status = random.choice(['completed', 'pending', 'in_progress'])
         insp_status = random.choice(statuses)
+        if insp_status in ['submitted', 'approved', 'closed', 'rejected']:
+            asn_status = 'completed'
+        elif insp_status in ['in_progress']:
+            asn_status = 'in_progress'
+        else:
+            asn_status = 'pending'
 
         assignment = Assignment(
             project_id=project.id,

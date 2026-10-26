@@ -62,6 +62,10 @@ def create_project():
         registered_beneficiaries=data.get('registered_beneficiaries', 0),
         sanctioned_capacity=data.get('sanctioned_capacity', 0),
         status=data.get('status', 'active'),
+        compliance_score=float(data['compliance_score']) if 'compliance_score' in data and data['compliance_score'] is not None else 100.0,
+        risk_score=float(data['risk_score']) if 'risk_score' in data and data['risk_score'] is not None else 0.0,
+        risk_level=data.get('risk_level', 'low'),
+        last_inspection_date=datetime.fromisoformat(data['last_inspection_date']) if data.get('last_inspection_date') else None,
         next_inspection_due=datetime.fromisoformat(data['next_inspection_due']) if data.get('next_inspection_due') else None,
     )
     db.session.add(project)
