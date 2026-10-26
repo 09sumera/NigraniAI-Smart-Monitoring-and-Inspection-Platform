@@ -9,7 +9,7 @@ app = create_app(os.getenv("FLASK_ENV", "development"))
 def initialize_database():
     with app.app_context():
         # Register all SQLAlchemy models before creating tables.
-        import app.models  # noqa: F401
+        from app import models as app_models # noqa: F401
 
         db.create_all()
 
